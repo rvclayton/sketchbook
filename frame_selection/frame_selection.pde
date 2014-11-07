@@ -3,9 +3,9 @@ import java.util.Arrays;
 color bgColor = color(0, 0, 0);
 color fgColor = color(255, 255, 255);
 
-final int frameWidth = 12;
+final int frameWidth = 14;
 final int frameHeight = frameWidth;
-final int frameGap = frameWidth/2;
+final int frameGap = (int) (0.75*frameWidth);
 
 final ArrayList<PageFrameSet> frames = new ArrayList<PageFrameSet>();
 final PageReferenceSequence pageReferences = new PageReferenceSequence(
@@ -21,7 +21,7 @@ draw() {
   pageReferences.draw(10, 10);
 
   int x = 10;
-  final int y = 20;
+  final int y = 25;
   for (PageFrameSet f : frames) {
     f.draw(x, y);
     x += frameGap + frameWidth;
@@ -36,7 +36,7 @@ setup() {
 
   PageFrameSet pages = new PageFrameSet(3, pageReferences);
   frames.add(pages);
-  for (int i = 0; i < 3; ++i)
+  for (int i = 0; i < pageReferences.size(); ++i)
     frames.add(pages = pages.pageRef(i));
   }
   
@@ -191,28 +191,28 @@ PageFrameSet {
 
 
 /**
-   A sequence of page references.
+   An immutable sequence of page references.  Similar to what might be produced
+   by an execuing process, except redundant page references are scrubbed.
  */
 
 class
 PageReferenceSequence {
 
 
-  /**
-   */
-
   void
   draw(int ulx, int uly) {
+
+    // Draw this page-reference sequence assuming the origin point is given by
+    // (ulx, uly).
 
     textSize(frameHeight);
     textAlign(CENTER, BOTTOM);
     fill(fgColor);
 
     uly = uly + frameHeight;
-    final int x = ulx + frameWidth/2;
 
     for (int i = 0; i < pages.length; ++i) 
-      text(pages[i], x + frameWidth*(i + 1), uly);
+      text(pages[i], ulx + frameWidth*(i + 1) + frameGap*(i + 0.5), uly);
     }
 
 
@@ -231,22 +231,45 @@ PageReferenceSequence {
   int
   ejectPage(int pageRefIndex, int pages[]) {
 
-    int nextRef = findForward(pageRefIndex, pages[0]);
-    if (nextRef < 0)
+    int nextRefIndex = findForward(pageRefIndex, pages[0]);
+    if (nextRefIndex < 0)
       return 0;
-    int r = 0;
+    int pageFrameIndex = 0;
 
-    for (int j = pages.length - 1; i > 0; --i) {
+    for (int j = pages.length - 1; j > 0; --j) {
       final int k = findForward(pageRefIndex, pages[j]);
       if (k < 0)
         return j;
-      if (k > nextRef) {
-        nextRef = k;
-        r = j;
+      if (k > nextRefIndex) {
+        nextRefIndex = k;
+        pageFrameIndex = j;
         }
       }
 
-    return r;
+    return pageFrameIndex;
+    }
+
+
+  /**
+     Look for a page reference in the page-reference sequence.
+
+     @param pageRefIndex The index in the page-reference sequence from which
+     the search starts.
+
+     @param pageNumber The page number to find.
+
+     @return The smallest index larger than the given page-reference index that
+     references the given page number.
+   */
+
+  private int
+  findForward(int pageRefIndex, int pageNumber) {
+
+    for ( ; pageRefIndex < pages.length; ++pageRefIndex)
+      if (pages[pageRefIndex] == pageNumber)
+        return pageRefIndex;
+
+    return -1;
     }
 
 
@@ -260,10 +283,25 @@ PageReferenceSequence {
 
 
   /**
+     Create a new page-reference sequence.
+
+     @param p The sequence of page references.
    */
 
   PageReferenceSequence(int p[]) {
     pages = Arrays.copyOf(p, p.length);
+    }
+
+
+  /**
+     Get the sequence size.
+
+     @return The sequence size in pages.
+   */
+
+  int
+  size() {
+    return pages.length;
     }
 
 
