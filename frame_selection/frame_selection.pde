@@ -124,7 +124,7 @@ PageFrameSet {
     // Otherwise, eject a page based on some criteria and use the freed page
     // fame.
 
-       i = pageSequence.ejectPage(frames);
+       i = pageSequence.ejectPage(pageIndex, frames);
        newPageFrameSet.frames[i] = pageNo;
 
     return newPageFrameSet;
@@ -217,11 +217,36 @@ PageReferenceSequence {
 
 
   /**
+     Select a page for replacement.
+
+     @param pageRefIndex An index to the page reference that casused the page
+     fault.
+
+     @param pages The page-frame set, all of which contains pages.
+
+     @return An index into the page-frame set; the page in the indexed frame is
+     the one to be ejected.
    */
 
   int
-  ejectPage(int pages[]) {
-    return 0;
+  ejectPage(int pageRefIndex, int pages[]) {
+
+    int nextRef = findForward(pageRefIndex, pages[0]);
+    if (nextRef < 0)
+      return 0;
+    int r = 0;
+
+    for (int j = pages.length - 1; i > 0; --i) {
+      final int k = findForward(pageRefIndex, pages[j]);
+      if (k < 0)
+        return j;
+      if (k > nextRef) {
+        nextRef = k;
+        r = j;
+        }
+      }
+
+    return r;
     }
 
 
