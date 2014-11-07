@@ -8,8 +8,10 @@ final int frameHeight = frameWidth;
 final int frameGap = (int) (0.75*frameWidth);
 
 final ArrayList<PageFrameSet> frames = new ArrayList<PageFrameSet>();
-final PageReferenceSequence pageReferences = new PageReferenceSequence(
-  new int [] { 7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1 });
+
+final PageReferenceSequence pageReferences = 
+  new OptimalPageReferenceSequence(
+    new int [] { 7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1 });
 
 
 void
@@ -41,13 +43,99 @@ setup() {
   }
   
 
-/**
-   An immutable set of primary-store page frames.
- */
+class
+OptimalPageReferenceSequence 
+extends PageReferenceSequence {
+
+  int
+  ejectPage(int pageRefIndex, int pages[]) {
+
+    int nextRefIndex = findForward(pageRefIndex, pages[0]);
+    if (nextRefIndex < 0)
+      return 0;
+    int pageFrameIndex = 0;
+
+    for (int j = pages.length - 1; j > 0; --j) {
+      final int k = findForward(pageRefIndex, pages[j]);
+      if (k < 0)
+        return j;
+      if (k > nextRefIndex) {
+        nextRefIndex = k;
+        pageFrameIndex = j;
+        }
+      }
+
+    return pageFrameIndex;
+    }
+
+
+  private int
+  findForward(int pageRefIndex, int pageNumber) {
+
+    for ( ; pageRefIndex < pages.length; ++pageRefIndex)
+      if (pages[pageRefIndex] == pageNumber)
+        return pageRefIndex;
+
+    return -1;
+    }
+
+
+  OptimalPageReferenceSequence(int pages[]) {
+    super(pages);
+    }
+  }
+
+
+class
+LRUPageReferenceSequence 
+extends PageReferenceSequence {
+
+  int
+  ejectPage(int pageRefIndex, int pages[]) {
+
+    int prevRefIndex = findBackward(pageRefIndex, pages[0]);
+    if (prevRefIndex < 0)
+      return 0;
+    int pageFrameIndex = 0;
+
+    for (int j = pages.length - 1; j > 0; --j) {
+      final int k = findBackward(pageRefIndex, pages[j]);
+      if (k < 0)
+        return j;
+      if (k < prevRefIndex) {
+        prevRefIndex = k;
+        pageFrameIndex = j;
+        }
+      }
+
+    return pageFrameIndex;
+    }
+
+
+  private int
+  findBackward(int pageRefIndex, int pageNumber) {
+
+    while (--pageRefIndex > -1)
+      if (pages[pageRefIndex] == pageNumber)
+        break;
+
+    return pageRefIndex;
+    }
+
+
+  LRUPageReferenceSequence(int pages[]) {
+    super(pages);
+    }
+  }
+
 
 class
 PageFrameSet {
   
+
+  // An immutable set of primary-store page frames.
+
+
   /**
      Draw this page-frame set.
 
@@ -97,17 +185,11 @@ PageFrameSet {
     }
     
 
-  /**
-     Add a page to a frame in this page-frame set.
-
-     @param pageNo The number of the page to add.
-
-     @return A copy of this page-frame set in which the given page is in the
-     set.
-  */
-
   private PageFrameSet
   pageAdd(int pageIndex) {
+
+    // Add the page at the given index to a frame in this page-frame set.
+    // Return a copy of this page-frame set containing the page.
 
     final PageFrameSet newPageFrameSet = new PageFrameSet(this);
     final int pageNo = pageSequence.get(pageIndex);
@@ -131,14 +213,11 @@ PageFrameSet {
     }
 
 
-  /**
-     Create a new empty imutable set of page frames.
-
-     @param c The set size in page frames; must be positive.
-  */
-
   public
   PageFrameSet(int c, PageReferenceSequence pages) {
+
+    // Create a new empty imutable set of page frames.
+
     assert c > 0;
     frames = new int [c];
     Arrays.fill(frames, freePageFrame);
@@ -146,14 +225,11 @@ PageFrameSet {
     }
     
 
-  /**
-     Create a copy of a page-frame set.
-
-     @param The page-frame set to copy.
-  */
-
   private
   PageFrameSet(PageFrameSet pageFrames) {
+
+    // Create a copy of the given page-frame set.
+
     frames = Arrays.copyOf(pageFrames.frames, pageFrames.frames.length);
     pageSequence = pageFrames.pageSequence;
     }
@@ -190,13 +266,14 @@ PageFrameSet {
   }
 
 
-/**
-   An immutable sequence of page references.  Similar to what might be produced
-   by an execuing process, except redundant page references are scrubbed.
- */
 
-class
+abstract class
 PageReferenceSequence {
+
+
+  // An immutable sequence of page references.  Similar to what might be
+  // produced by an execuing process, except redundant page references are
+  // scrubbed.
 
 
   void
@@ -216,102 +293,40 @@ PageReferenceSequence {
     }
 
 
-  /**
-     Select a page for replacement.
+  abstract int ejectPage(int pageRefIndex, int pages[]);
 
-     @param pageRefIndex An index to the page reference that casused the page
-     fault.
+    // Select a page for replacement.
 
-     @param pages The page-frame set, all of which contains pages.
-
-     @return An index into the page-frame set; the page in the indexed frame is
-     the one to be ejected.
-   */
-
-  int
-  ejectPage(int pageRefIndex, int pages[]) {
-
-    int nextRefIndex = findForward(pageRefIndex, pages[0]);
-    if (nextRefIndex < 0)
-      return 0;
-    int pageFrameIndex = 0;
-
-    for (int j = pages.length - 1; j > 0; --j) {
-      final int k = findForward(pageRefIndex, pages[j]);
-      if (k < 0)
-        return j;
-      if (k > nextRefIndex) {
-        nextRefIndex = k;
-        pageFrameIndex = j;
-        }
-      }
-
-    return pageFrameIndex;
-    }
-
-
-  /**
-     Look for a page reference in the page-reference sequence.
-
-     @param pageRefIndex The index in the page-reference sequence from which
-     the search starts.
-
-     @param pageNumber The page number to find.
-
-     @return The smallest index larger than the given page-reference index that
-     references the given page number.
-   */
-
-  private int
-  findForward(int pageRefIndex, int pageNumber) {
-
-    for ( ; pageRefIndex < pages.length; ++pageRefIndex)
-      if (pages[pageRefIndex] == pageNumber)
-        return pageRefIndex;
-
-    return -1;
-    }
-
-
-  /**
-   */
 
   int
   get(int i) {
+
+    // Return the page reference associated with the given index.
+
     return pages[i];
     }
 
 
-  /**
-     Create a new page-reference sequence.
-
-     @param p The sequence of page references.
-   */
-
   PageReferenceSequence(int p[]) {
+
+    // Create a new page-reference sequence based on the given page references.
+
     pages = Arrays.copyOf(p, p.length);
     }
 
 
-  /**
-     Get the sequence size.
-
-     @return The sequence size in pages.
-   */
-
   int
   size() {
+
+    // Return the size of this page-reference sequence in page referecnes.
+
     return pages.length;
     }
 
 
-  private final int pages[];
+  protected final int pages[];
   }
 
-
-/**
-   
-*/
 
 class 
 UnchangedPageFrameSet 
