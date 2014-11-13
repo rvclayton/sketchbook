@@ -10,7 +10,7 @@ final int frameGap = (int) (0.75*frameWidth);
 final int pageReferences [] = 
   new int [] { 7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1 };
 
-final ArrayList<int []> pageFrameSets = optimal(3, pageReferences);
+final PageFrameSets pageFrameSets = optimal(3, pageReferences);
 final int freePageFrame = -1;
 
 
@@ -42,8 +42,7 @@ drawPageFrameSet(int ulx, int uly, int pageFrameSet[]) {
     
 
 void
-drawPageFrameSets(int ulx, int uly, ArrayList<int []> pageFrameSets) {
-
+drawPageFrameSets(int ulx, int uly, PageFrameSets pageFrameSets) {
   
   int lastPageFrameSet[] = pageFrameSets.get(0);
   drawPageFrameSet(ulx, uly, lastPageFrameSet);
@@ -59,6 +58,8 @@ drawPageFrameSets(int ulx, int uly, ArrayList<int []> pageFrameSets) {
 
 void
 drawPageNumbers(int ulx, int uly, int pageFrameSet[]) {
+
+  //
 
   final int x = ulx + frameWidth/2;
 
@@ -92,7 +93,9 @@ drawPageReferences(int ulx, int uly, int pageRefs[]) {
 int
 findClosestAfter(int pageRef, int pageRefIndex, int pageReferences[]) {
 
-  //
+  // Return the index to the given page ref in the given page-reference
+  // sequence that is strictly to the right of and closest to the given
+  // page-reference index, or -1 if there's no such index.
 
   while (++pageRefIndex < pageReferences.length)
     if (pageReferences[pageRefIndex] == pageRef)
@@ -116,25 +119,20 @@ findPage(int pageFrameSet[], int pageRef) {
   }
 
 
-ArrayList<int []>
+PageFrameSets
 optimal(int pageFrameSetSize, int pageReferences[]) {
 
-  final ArrayList<int []> pageFrames = new ArrayList<int []>();
+  // 
 
-  int lastFrameSet [] = new int [pageFrameSetSize];
-  Arrays.fill(lastFrameSet, freePageFrame);
-  pageFrames.add(lastFrameSet);
+  final PageFrameSets pageFrames = new PageFrameSets(pageFrameSetSize);
 
   for (int pageRefIndex = 0; pageRefIndex < pageReferences.length; ++pageRefIndex) {
     final int pageRef = pageReferences[pageRefIndex];
-    if (findPage(lastFrameSet, pageRef) < 0) {
-      lastFrameSet = Arrays.copyOf(lastFrameSet, lastFrameSet.length);
-      int i = findPage(lastFrameSet, freePageFrame);
-      if (i < 0)
-        i = optimalPick(pageRefIndex, lastFrameSet, pageReferences);
-      lastFrameSet[i] = pageRef;
+    if (!referencePage(pageRef, pageFrames)) {
+      final int lastFrameSet [] = pageFrames.addNew();
+      lastFrameSet[optimalPick(pageRefIndex, lastFrameSet, pageReferences)] = 
+        pageRef;
       }
-    pageFrames.add(lastFrameSet);
     }
 
   return pageFrames;
@@ -165,7 +163,77 @@ optimalPick(final int pageRefIndex, int pageFrames[], int pageReferences[]) {
   }
 
 
+boolean
+referencePage(int pageRef, PageFrameSets pageFrames) {
+
+  int lastFrameSet[] = pageFrames.tail();
+
+  if (findPage(lastFrameSet, pageRef) > -1) {
+    pageFrames.add(lastFrameSet);
+    return true;
+    }
+
+  final int i = findPage(lastFrameSet, freePageFrame);
+  if (i > -1) {
+    pageFrames.addNew()[i] = pageRef;
+    return true;
+    }
+
+  return false;
+  }
+
+
 void
 setup() {
   size(640, 480);
+  }
+
+
+class
+PageFrameSets {
+
+
+  int []
+  add(int pageFrameSet[]) {
+    pageFrameSets.add(pageFrameSet);
+    return pageFrameSet;
+    }
+
+
+  int []
+  addNew() {
+    final int pageFrameSet[] = tail();
+    return add(Arrays.copyOf(pageFrameSet, pageFrameSet.length));
+    }
+
+
+  int []
+  get(int i) {
+    return pageFrameSets.get(i);
+    }
+
+
+  PageFrameSets(int pfs) {
+    pageFrameSets = new ArrayList<int []>();
+    pageFrameSetSize = pfs;
+    final int pageFrames[] = new int [pageFrameSetSize];
+    Arrays.fill(pageFrames, freePageFrame);
+    pageFrameSets.add(pageFrames);
+    }
+
+
+  int
+  size() {
+    return pageFrameSets.size();
+    }
+
+
+  int []
+  tail() {
+    return pageFrameSets.get(pageFrameSets.size() - 1);
+    }
+
+
+  private final ArrayList<int []> pageFrameSets;
+  private final int pageFrameSetSize;
   }
