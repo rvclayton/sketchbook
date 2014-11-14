@@ -10,7 +10,7 @@ final int frameGap = (int) (0.75*frameWidth);
 final int pageReferences [] = 
   new int [] { 7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1 };
 
-final PageFrameSets pageFrameSets = optimal(3, pageReferences);
+final PageFrameSets pageFrameSets = leastRecentlyUsed(3, pageReferences);
 final int freePageFrame = -1;
 
 
@@ -106,6 +106,19 @@ findClosestAfter(int pageRef, int pageRefIndex, int pageReferences[]) {
 
 
 int
+findClosestBefore(int pageRef, int pageRefIndex, int pageReferences[]) {
+
+  // Return the index to the given page ref in the given page-reference
+  // sequence that is strictly to the left of and closest to the given
+  // page-reference index, or -1 if there's no such index.
+
+  while ((--pageRefIndex >= 0) && (pageReferences[pageRefIndex] != pageRef)) ;
+
+  return pageRefIndex;
+  }
+
+
+int
 findPage(int pageFrameSet[], int pageRef) { 
 
   // Look for the given page reference in the given page-frame set.  Return the
@@ -120,16 +133,69 @@ findPage(int pageFrameSet[], int pageRef) {
 
 
 PageFrameSets
-optimal(int pageFrameSetSize, int pageReferences[]) {
+leastRecentlyUsed(int pageFrameSetSize, int pageReferences[]) {
 
-  // 
+  // Return a sequence of page-frame sets, each of which has the given size in
+  // page frames, that have been managed by the lru-page selection algorithm
+  // for the given page-reference sequence.
 
   final PageFrameSets pageFrames = new PageFrameSets(pageFrameSetSize);
 
   for (int pageRefIndex = 0; pageRefIndex < pageReferences.length; ++pageRefIndex) {
     final int pageRef = pageReferences[pageRefIndex];
     if (!referencePage(pageRef, pageFrames)) {
-      final int lastFrameSet [] = pageFrames.addNew();
+      final int lastFrameSet [] = pageFrames.addCopy();
+      lastFrameSet[lruPick(pageRefIndex, lastFrameSet, pageReferences)] = 
+        pageRef;
+      }
+    }
+
+  return pageFrames;
+  }
+
+
+int
+lruPick(final int pageRefIndex, int pageFrames[], int pageReferences[]) {
+
+  // Return the index of the lru page to eject from the given page-frame set
+  // when the incoming page is at the given index in the given page-reference
+  // sequence.
+
+  int pageFrameIndex = 0;
+  int replacementIndex = 
+    findClosestBefore(
+      pageFrames[pageFrameIndex], pageRefIndex, pageReferences);
+  if (replacementIndex < 0)
+    return pageFrameIndex;
+
+  for (int pfi = 1; pfi < pageFrames.length; ++pfi) {
+    final int ri = 
+      findClosestBefore(pageFrames[pfi], pageRefIndex, pageReferences);
+    if (ri < 0)
+      return pfi;
+    if (ri < replacementIndex) {
+      pageFrameIndex = pfi;
+      replacementIndex = ri;
+      }
+    }
+
+  return pageFrameIndex;
+  }
+
+
+PageFrameSets
+optimal(int pageFrameSetSize, int pageReferences[]) {
+
+  // Return a sequence of page-frame sets, each of which has the given size in
+  // page frames, that have been managed by the optimal-page selection
+  // algorithm for the given page-reference sequence.
+
+  final PageFrameSets pageFrames = new PageFrameSets(pageFrameSetSize);
+
+  for (int pageRefIndex = 0; pageRefIndex < pageReferences.length; ++pageRefIndex) {
+    final int pageRef = pageReferences[pageRefIndex];
+    if (!referencePage(pageRef, pageFrames)) {
+      final int lastFrameSet [] = pageFrames.addCopy();
       lastFrameSet[optimalPick(pageRefIndex, lastFrameSet, pageReferences)] = 
         pageRef;
       }
@@ -141,6 +207,10 @@ optimal(int pageFrameSetSize, int pageReferences[]) {
 
 int
 optimalPick(final int pageRefIndex, int pageFrames[], int pageReferences[]) {
+
+  // Return the index of the optimal page to eject from the given page-frame
+  // set when the incoming page is at the given index in the given
+  // page-reference sequence.
 
   int pageFrameIndex = 0;
   int replacementIndex = 
@@ -175,7 +245,7 @@ referencePage(int pageRef, PageFrameSets pageFrames) {
 
   final int i = findPage(lastFrameSet, freePageFrame);
   if (i > -1) {
-    pageFrames.addNew()[i] = pageRef;
+    pageFrames.addCopy()[i] = pageRef;
     return true;
     }
 
@@ -192,16 +262,26 @@ setup() {
 class
 PageFrameSets {
 
+  // A sequence of page-frame sets.
+
 
   int []
   add(int pageFrameSet[]) {
+    
+    // Add the given page-frame set to the end of this sequence.  Return the
+    // given page-frame set.
+
     pageFrameSets.add(pageFrameSet);
     return pageFrameSet;
     }
 
 
   int []
-  addNew() {
+  addCopy() {
+
+    // Add a copy of this sequence's tail to the end of this sequence.  Return
+    // the new tail.
+
     final int pageFrameSet[] = tail();
     return add(Arrays.copyOf(pageFrameSet, pageFrameSet.length));
     }
