@@ -10,7 +10,7 @@ final int frameGap = (int) (0.75*frameWidth);
 final int pageReferences [] = 
   new int [] { 7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1 };
 
-final PageFrameSets pageFrameSets = leastRecentlyUsed(3, pageReferences);
+final PageFrameSets pageFrameSets = fifo(3, pageReferences);
 final int freePageFrame = -1;
 
 
@@ -87,6 +87,25 @@ drawPageReferences(int ulx, int uly, int pageRefs[]) {
 
   for (int i = 0; i < pageRefs.length; ++i) 
     text(pageRefs[i], ulx + frameWidth*(i + 1) + frameGap*(i + 0.5), uly);
+  }
+
+
+PageFrameSets
+fifo(int pageFrameSetSize, int pageReferences[]) {
+
+  // Return a sequence of page-frame sets, each of which has the given size in
+  // page frames, that have been managed by the fifo-page selection algorithm
+  // for the given page-reference sequence.
+
+  final PageFrameSets pageFrames = new PageFrameSets(pageFrameSetSize);
+
+  for (int pageRefIndex = 0; pageRefIndex < pageReferences.length; ++pageRefIndex) {
+    final int pageRef = pageReferences[pageRefIndex];
+    if (!referencePage(pageRef, pageFrames))
+      rotateIn(pageFrames.addCopy(), pageRef);
+    }
+
+  return pageFrames;
   }
 
 
@@ -250,6 +269,17 @@ referencePage(int pageRef, PageFrameSets pageFrames) {
     }
 
   return false;
+  }
+
+
+void
+rotateIn(int pageFrames[], int pageRef) {
+
+  // Rotate the given page reference into the given page-frame set.
+
+  for (int i = pageFrames.length - 1; i > 0; --i)
+    pageFrames[i] = pageFrames[i - 1];
+  pageFrames[0] = pageRef;
   }
 
 
